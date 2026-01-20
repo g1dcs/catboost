@@ -205,8 +205,7 @@ cdef class Dictionary:
                     tokens.push_back(to_arcadia_string(line))
             elif isinstance(line, (list, np.ndarray, Series)):
                 [_ensure(isinstance(token, string_types), msg.format(type(token))) for token in line]
-                for token in line:
-                    tokens.push_back(to_arcadia_string(token))
+                tokens = py_to_tvector[TString](line)
             dereference(dictionaryBuilder.Get()).Add(<TConstArrayRef[TString]>tokens);
         self.__dictionary_holder = THolder[IDictionary](dereference(dictionaryBuilder.Get()).FinishBuilding().Release())
 
@@ -315,15 +314,13 @@ cdef class Dictionary:
         cdef TVector[TString] tokens
         cdef TVector[TTokenId] tokenIds
         for line in data:
-            tokens.clear()
             tokenIds.clear()
             if isinstance(line, string_types):
                 if tokenizer is not None:
                     line = tokenizer.tokenize(line)
                 else:
                     line = [line]
-            for token in line:
-                tokens.push_back(to_arcadia_string(token))
+            tokens = py_to_tvector[TString](line)
             dereference(self.__dictionary_holder.Get()).Apply(TConstArrayRef[TString](tokens), &tokenIds, unknownTokenPolicy)
             token_ids.append([<int>tokenId for tokenId in tokenIds])
 
@@ -361,7 +358,7 @@ cdef class Dictionary:
 
         cdef ui32 _token_id = token_id
         self.__check_dictionary_initialized()
-        return to_native_str(dereference(self.__dictionary_holder.Get()).GetToken(_token_id))
+        return to_str(dereference(self.__dictionary_holder.Get()).GetToken(_token_id))
 
     def get_tokens(self, token_ids):
         """
@@ -385,7 +382,7 @@ cdef class Dictionary:
 
         cdef TVector[TString] tokens
         dereference(self.__dictionary_holder.Get()).GetTokens(<TConstArrayRef[TTokenId]>tokenIds, &tokens)
-        return [to_native_str(token) for token in tokens]
+        return [to_str(token) for token in tokens]
 
     def get_top_tokens(self, top_size=None):
         """
@@ -406,7 +403,7 @@ cdef class Dictionary:
             top = dereference(self.__dictionary_holder.Get()).GetTopTokens()
         else:
             top = dereference(self.__dictionary_holder.Get()).GetTopTokens(top_size)
-        return [to_native_str(s) for s in top]
+        return [to_str(s) for s in top]
 
     @property
     def unknown_token_id(self):

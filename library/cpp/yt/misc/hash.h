@@ -17,20 +17,28 @@ void HashCombine(size_t& h, size_t k);
 template <class T>
 void HashCombine(size_t& h, const T& k);
 
+//! Computes the hash of #value handling NaN values gracefully
+//! (returning the same constant for all NaNs).
+//! If |T| is not a floating-point type, #NaNSafeHash is equivalent to #THash.
+template <class T>
+size_t NaNSafeHash(const T& value);
+
 ////////////////////////////////////////////////////////////////////////////////
 
 //! Provides a hasher that randomizes the results of another one.
+//! \note In case seed value is 0, the hash is just the underlying hash.
 template <class TElement, class TUnderlying = ::THash<TElement>>
 class TRandomizedHash
 {
 public:
     TRandomizedHash();
-    size_t operator () (const TElement& element) const;
+    explicit TRandomizedHash(size_t seed);
+
+    size_t operator()(const TElement& element) const;
 
 private:
     size_t Seed_;
     TUnderlying Underlying_;
-
 };
 
 ////////////////////////////////////////////////////////////////////////////////

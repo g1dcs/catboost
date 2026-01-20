@@ -4,6 +4,8 @@
 #include "hash.h"
 #endif
 
+#include <cmath>
+
 namespace NYT {
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -29,6 +31,19 @@ void HashCombine(size_t& h, const T& k)
     HashCombine(h, THash<T>()(k));
 }
 
+template <class T>
+Y_FORCE_INLINE size_t NaNSafeHash(const T& value)
+{
+    return ::THash<T>()(value);
+}
+
+template <class T>
+    requires std::is_floating_point_v<T>
+Y_FORCE_INLINE size_t NaNSafeHash(const T& value)
+{
+    return std::isnan(value) ? 0 : ::THash<T>()(value);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 template <class TElement, class TUnderlying>
@@ -37,9 +52,16 @@ TRandomizedHash<TElement, TUnderlying>::TRandomizedHash()
 { }
 
 template <class TElement, class TUnderlying>
+TRandomizedHash<TElement, TUnderlying>::TRandomizedHash(size_t seed)
+    : Seed_(seed)
+{ }
+
+template <class TElement, class TUnderlying>
 size_t TRandomizedHash<TElement, TUnderlying>::operator ()(const TElement& element) const
 {
-    return Underlying_(element) + Seed_;
+    auto result = Seed_;
+    HashCombine(result, Underlying_(element));
+    return result;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

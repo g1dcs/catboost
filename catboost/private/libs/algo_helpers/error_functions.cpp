@@ -74,7 +74,7 @@ void IDerCalcer::CalcDersRange(
     const bool hasDelta = approxDeltas != nullptr;
     const bool useTDers = ders != nullptr;
     DispatchGenericLambda(
-        [=] (auto useTDers, auto isExpApprox, auto hasDelta) {
+        [=, this] (auto useTDers, auto isExpApprox, auto hasDelta) {
             switch (maxDerivativeOrder) {
                 case 1:
                     return CalcDersRangeImpl<1, useTDers, isExpApprox, hasDelta>(
@@ -285,7 +285,7 @@ namespace {
                         ExpSrc[i - ViewBegin] = Src[i];
                     }
                 }
-                FastExpInplace(ExpSrc.data(), ViewEnd - ViewBegin);
+                NCB::FastExpWithInfInplace(ExpSrc.data(), ViewEnd - ViewBegin);
             }
             return ExpSrc[idx - ViewBegin];
         }

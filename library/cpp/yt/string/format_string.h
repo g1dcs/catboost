@@ -43,6 +43,10 @@ public:
 
     static consteval void CheckFormattability();
 
+    // Data used for compile-time slicing of the format string.
+    NDetail::TFormatAnalyser::TMarkerLocations<TArgs...> Markers = {};
+    NDetail::TFormatAnalyser::TEscapeLocations Escapes = {};
+
 private:
     std::string_view Format_;
 
@@ -53,6 +57,13 @@ private:
 // Used to properly infer template arguments in Format.
 template <class... TArgs>
 using TFormatString = TBasicFormatString<std::type_identity_t<TArgs>...>;
+
+////////////////////////////////////////////////////////////////////////////////
+
+template <class T>
+concept CStringLiteral = requires (T& t) {
+    [] (const char*) { } (t);
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 

@@ -7,12 +7,12 @@
 #include "survival_aft_utils.h"
 
 #include <catboost/private/libs/data_types/pair.h>
+#include <catboost/libs/helpers/math_utils.h>
 #include <catboost/libs/model/eval_processing.h>
 #include <catboost/private/libs/options/catboost_options.h>
 #include <catboost/private/libs/options/enums.h>
 #include <catboost/private/libs/options/restrictions.h>
 
-#include <library/cpp/fast_exp/fast_exp.h>
 #include <library/cpp/threading/local_executor/local_executor.h>
 
 #include <util/generic/algorithm.h>
@@ -298,7 +298,7 @@ public:
         Y_ASSERT(target.size() == 1);
         const double diff = (target[0] - approx[0]);
         double prec = -2 * approx[1];
-        FastExpInplace(&prec, /*count*/ 1);
+        NCB::FastExpWithInfInplace(&prec, /*count*/ 1);
         (*der)[0] = weight * diff;
         (*der)[1] = weight * (Sqr(diff) * prec - 1);
 
@@ -629,6 +629,31 @@ private:
     }
 };
 
+class TRMSPEError final : public IDerCalcer {
+public:
+    static constexpr double RMSPE_DER3 = 0.0;
+
+public:
+    explicit TRMSPEError(bool isExpApprox)
+        : IDerCalcer(isExpApprox)
+    {
+        CB_ENSURE(isExpApprox == false, "Approx format does not match");
+    }
+
+private:
+    double CalcDer(double approx, float target) const override {
+        return (target - approx) / (target * target);
+    }
+
+    double CalcDer2(double /*approx*/, float target) const override {
+        return - 1 / (target * target);
+    }
+
+    double CalcDer3(double /*approx*/, float /*target*/) const override {
+        return RMSPE_DER3;
+    }
+};
+
 class TPoissonError final : public IDerCalcer {
 public:
     explicit TPoissonError(bool isExpApprox)
@@ -722,7 +747,7 @@ public:
         const int approxDimension = approx.ysize();
 
         TVector<double> prob = approx;
-        FastExpInplace(prob.data(), prob.ysize());
+        NCB::FastExpWithInfInplace(prob.data(), prob.ysize());
         for (int dim = 0; dim < approxDimension; ++dim) {
             prob[dim] /= (1 + prob[dim]);
             (*der)[dim] = -prob[dim];
@@ -766,7 +791,7 @@ public:
         TArrayRef<double> derRef(*der);
         CopyN(approx.data(), approx.ysize(), derRef.data());
 
-        FastExpInplace(derRef.data(), derRef.ysize());
+        NCB::FastExpWithInfInplace(derRef.data(), derRef.ysize());
         for (int dim = 0; dim < approxDimension; ++dim) {
             derRef[dim] = -derRef[dim] / (1 + derRef[dim]);
         }

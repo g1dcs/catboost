@@ -737,8 +737,7 @@ namespace NCatboostCuda {
             if (evalMetricDescriptor.Defined() && evalMetricDescriptor.GetRef().GpuEvalFunc.Defined()) {
                 metrics.emplace_back(new TGpuCustomMetric(
                     evalMetricDescriptor.GetRef(),
-                    evalMetricDescription,
-                    cpuApproxDim
+                    evalMetricDescription
                 ));
             } else {
                 metrics.emplace_back(new TCpuFallbackMetric(
@@ -755,7 +754,7 @@ namespace NCatboostCuda {
         CB_ENSURE(metrics.size() == 1, "Eval metric should have a single value. Metric "
                 << ToString(objectiveMetricDescription.GetLossFunction())
                 << " provides a value for each class, thus it cannot be used as "
-                << "a single value to select best iteration or to detect overfitting. "
+                << "a single value to select the best iteration or to detect overfitting. "
                 << "If you just want to look on the values of this metric use custom_metric parameter.");
 
         if (hasWeights && !metrics.back()->GetUseWeights().IsIgnored()) {
@@ -764,7 +763,7 @@ namespace NCatboostCuda {
             } else if (ShouldConsiderWeightsByDefault(metrics.back())) {
                 metrics.back()->GetUseWeights().SetDefaultValue(true);
                 CATBOOST_INFO_LOG << "Note: eval_metric is using sample weights by default. " <<
-                                  "Set MetricName:use_weights=False to calculate unweighted metric." << Endl;
+                                  "Set MetricName:use_weights=False to calculate an unweighted metric." << Endl;
             }
         }
         usedDescriptions.insert(metrics.back()->GetCpuMetric().GetDescription());

@@ -14,9 +14,10 @@
 
 #include "config.h"
 
-#ifdef __USING_WASM_EXCEPTIONS__
 
 #include "unwind.h"
+
+#ifdef __WASM_EXCEPTIONS__
 #include <threads.h>
 
 _Unwind_Reason_Code __gxx_personality_wasm0(int version, _Unwind_Action actions,
@@ -102,8 +103,7 @@ _LIBUNWIND_EXPORT uintptr_t _Unwind_GetIP(struct _Unwind_Context *context) {
 }
 
 /// Not used in Wasm.
-_LIBUNWIND_EXPORT void _Unwind_SetIP(struct _Unwind_Context *context __attribute__((unused)),
-                                     uintptr_t value __attribute__((unused))) {}
+_LIBUNWIND_EXPORT void _Unwind_SetIP(struct _Unwind_Context *, uintptr_t) {}
 
 /// Called by personality handler to get LSDA for current frame.
 _LIBUNWIND_EXPORT uintptr_t
@@ -115,9 +115,16 @@ _Unwind_GetLanguageSpecificData(struct _Unwind_Context *context) {
 }
 
 /// Not used in Wasm.
-_LIBUNWIND_EXPORT uintptr_t
-_Unwind_GetRegionStart(struct _Unwind_Context *context __attribute__((unused))) {
+_LIBUNWIND_EXPORT uintptr_t _Unwind_GetRegionStart(struct _Unwind_Context *) {
   return 0;
 }
 
-#endif // defined(__USING_WASM_EXCEPTIONS__)
+#elif defined(__EMSCRIPTEN__)
+/// Called by __cxa_throw.
+/// Define it here to prevent linker errors if we're buildingig Wasm modules
+/// without exception support.
+_LIBUNWIND_EXPORT _Unwind_Reason_Code
+_Unwind_RaiseException(_Unwind_Exception *exception_object __attribute__((unused))) {
+  abort();
+}
+#endif // defined(__WASM_EXCEPTIONS__)

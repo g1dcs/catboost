@@ -95,9 +95,10 @@ def setup_hnsw_submodule(argv, extensions):
 
 
 def get_setup_requires(argv):
-    setup_requires = ['wheel']
+    setup_requires = ['cmake >= 3.24', 'wheel', 'conan (>=2.4.1, <3.0)', 'cython ~= 3.0.10', 'numpy']
+
     if ('build_widget' in argv) or (not ('--no-widget' in argv)):
-        setup_requires += ['jupyterlab (>=3.0.6, == 3.*)']
+        setup_requires += ['jupyterlab (>=3.0.6, <3.6.0)']
     return setup_requires
 
 
@@ -148,11 +149,8 @@ def copy_catboost_sources(topdir, pkgdir, verbose, dry_run):
         os.path.join('catboost', 'private'),
         os.path.join('catboost', 'tools'),
         'cmake',
-        os.path.join('contrib', 'deprecated'),
         os.path.join('contrib', 'libs'),
-        os.path.join('contrib', 'python', 'numpy'),
         os.path.join('contrib', 'restricted'),
-        os.path.join('contrib', 'tools', 'cython'),
         os.path.join('contrib', 'tools', 'protoc'),
         os.path.join('contrib', 'tools', 'swig'),
         'tools',
@@ -186,14 +184,6 @@ def copy_catboost_sources(topdir, pkgdir, verbose, dry_run):
             distutils.dir_util.mkpath(os.path.dirname(dst))
             distutils.file_util.copy_file(src, dst, update=1, verbose=verbose, dry_run=dry_run)
 
-    # TODO: proper automatic dependencies
-    contrib_python_cmakelists_txt = os.path.join(pkgdir, 'contrib', 'python', 'CMakeLists.txt')
-    if verbose:
-        log.info(f'Creating {contrib_python_cmakelists_txt} with numpy')
-    if not dry_run:
-        with open(contrib_python_cmakelists_txt, 'w') as f:
-            f.write('add_subdirectory(numpy)')
-
 
 def emph(s):
     return '\x1b[32m{}\x1b[0m'.format(s)
@@ -201,8 +191,10 @@ def emph(s):
 
 def get_catboost_version():
     version_py = os.path.join('catboost', 'version.py')
-    exec(compile(open(version_py).read(), version_py, 'exec'))
-    return locals()['VERSION']
+    d = {}
+    with open(version_py) as f:
+        exec(compile(f.read(), version_py, "exec"), globals(), d)
+    return d['VERSION']
 
 
 class OptionsHelper(object):
@@ -771,7 +763,7 @@ if __name__ == '__main__':
         install_requires=[
             'graphviz',
             'matplotlib',
-            'numpy (>=1.16.0, <2.0)',
+            'numpy (>=1.16.0, <3.0)',
             'pandas (>=0.24)',
             'scipy',
             'plotly',

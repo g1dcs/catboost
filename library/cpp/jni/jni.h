@@ -27,7 +27,12 @@ void RethrowExceptionFromJavaToCpp();
 
 struct TGlobalRefPolicy {
     static jobject Ref(jobject object, JNIEnv* env) { return env->NewGlobalRef(object); }
-    static void Unref(jobject object, JNIEnv* env) { return env->DeleteGlobalRef(object); }
+    static void Unref(jobject object, JNIEnv* env) {
+        if (!object) {
+            return;
+        }
+        return env->DeleteGlobalRef(object);
+    }
 };
 
 struct TIntentionallyLeakedRefPolicy {
@@ -41,12 +46,22 @@ struct TIntentionallyLeakedRefPolicy {
 
 struct TWeakGlobalRefPolicy {
     static jobject Ref(jobject object, JNIEnv* env) { return env->NewWeakGlobalRef(object); }
-    static void Unref(jobject object, JNIEnv* env) { return env->DeleteWeakGlobalRef(object); }
+    static void Unref(jobject object, JNIEnv* env) {
+        if (!object) {
+            return;
+        }
+        return env->DeleteWeakGlobalRef(object);
+    }
 };
 
 struct TLocalRefPolicy {
     static jobject Ref(jobject object, JNIEnv*) { return object; }
-    static void Unref(jobject object, JNIEnv* env) { return env->DeleteLocalRef(object); }
+    static void Unref(jobject object, JNIEnv* env) {
+        if (!object) {
+            return;
+        }
+        return env->DeleteLocalRef(object);
+    }
 };
 
 template <typename TRefPolicy, typename TObject>
@@ -89,9 +104,17 @@ public:
     static TJniEnv* Get();
 
 public:
+    // For better understanding of possible difference see link below
+    // https://stackoverflow.com/questions/1771679/difference-between-threads-context-class-loader-and-normal-classloader
+    // Context class loader is made default for compatibility with existing code
+    enum class EClassLoader {
+        CONTEXT = 0,
+        NORMAL
+    };
+
     // Should be used only in pair with JNI_OnLoad/Unload.
     //
-    jint Init(JavaVM* jvm);
+    jint Init(JavaVM* jvm, EClassLoader classLoader = EClassLoader::CONTEXT);
     void Cleanup(JavaVM* jvm);
 
     // Thread safe JniEnv.
@@ -116,7 +139,7 @@ public:
 
     bool acquireLocalRef(const NJni::TWeakGlobalRef& weakRef, NJni::TLocalRef& output) const;
 private:
-    void TryToSetClassLoader();
+    void TryToSetClassLoader(EClassLoader classLoader);
 
 private:
     struct TResources;

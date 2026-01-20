@@ -1,3 +1,94 @@
+# Release 1.2.8
+
+## Python package
+* Support Python 3.13 #2748. Thanks to @jeremy010203.
+* Support NumPy 2.x. #2671
+* Drop support for obsolete Python 3.7.
+* Use the proper name of the implementation class as a string id when storing values calculated for custom metrics on GPU. #1792
+* Propagate exceptions from custom metrics code on GPU. #1792
+
+## CatBoost for Apache Spark
+* Fix workers hanging after training. #2151. Thanks to @Shamann.
+* Remove support for Spark 2.x
+
+## Improvements
+* \[R-package\] Allow targets of `character` and `factor` types (useful for classes). #1874
+* Better default `leaf_estimation_iterations` for Tweedie regression on GPU. #2812
+
+## Build & testing
+* Switch to external Cython 3.0.10+ instead of 0.29.x-based version from contrib. #2810
+* Switch to Conan 2.x. #2582
+* \[CUDA\]. Do not output detailed ptxas statistics by default.
+* Used OpenSSL version updated to 3.0.15
+
+## Bugfixes
+* \[JVM applier\]. Methods related to evaluator types have been `private` by mistake.
+* \[JVM applier\]. Categorical features hashing methods have been `private` by mistake.
+* Fix crash when training on a quantized dataset that contains categorical features. #2816
+* Fix prediction of type `Probability` on CPUs that do not have SSE4 instruction set (that includes all ARM CPUs).
+  Values with probability 0 have been erroneously computed as `nan`.
+* Fix race condition when loading sparse datasets.
+
+
+# Node package Release 1.26.0
+(uses `catboostmodel` native libraries from the main CatBoost release v1.2.7)
+* Fix MultiClassification models support. #1903
+* Fix predict on GPU. #1901, #1923.
+* Make specifying categorical features parameter optional.
+* Support text and embedding features. #2523
+* Add support for 'MultiProbability' prediction type
+* Support Linux aarch64
+* Support macOS arm64
+* Support Windows x86_64
+
+
+# Release 1.2.7
+
+## Bugfixes
+* \[R-package\]: Restore basic functionality.
+
+## Build & testing
+* \[GPU\] Return configuration for multi-node GPU training with CMake-based build. See [documentation](https://catboost.ai/en/docs/installation/cli-installation-multi-node-installation).
+
+
+# Release 1.2.6
+
+## Major changes
+* CatBoost open source build, test and release infrastructure has been switched to GitHub actions. It is possible to run it if you fork CatBoost repository as well. See [the announcement](https://github.com/catboost/catboost/discussions/2708) for details.
+
+## Python package
+* Adapt `numpy` dependency specification to prohibit `numpy >= 2.0` for now. #2671
+
+## New features
+* User-defined metric GPU evaluation for task_type=GPU. Thanks to @pnsemyon.
+* GPU Custom objective support. Thanks to @pnsemyon.
+* \[C/C++ applier\]. `APT_MULTI_PROBABILITY` prediction type is now supported. #2639. Thanks to @aivarasbaranauskas.
+* `GroupQuantile` metric
+* [Aggregated graph features](https://catboost.ai/en/docs/features/graph-aggregated-features)
+
+## Build & testing
+* \[Windows\]: Visual Studio 2022 with MSVC toolset 14.29.30133 is now supported. #2302
+
+## Speedups
+* \[GPU\]: Increase block size in `QueryCrossEntropy` (~3x faster on a100 for 6m samples, 350 features, query size near 1).
+
+## Improvements
+* \[datasets\] Use mkstemp to replace deprecated mktemp. #2660. Thanks to @fatmo666
+
+## Bugfixes
+* \[C/C++ applier\]. Add missed `PredictSpecificClassFlat` to calcer.exports. #2715
+* \[Linux\]. Restore readable backtraces
+* \[GPU\] Make CUDA_MAX_THREADS_PER_SM cuda arch-specific
+* \[JVM applier\]: Fixed bloating temp directory with copies of native libraries on Windows. #2622. Thanks to @DKARAGODIN.
+* Calculate F1, Precision, and Recall for all labels in multi-label classification
+* Synchronize values of NCB::NModelEvaluation::EPredictionType and EApiPredictionType. #2643
+* Fix sign of 2nd derivative for Tweedie loss
+* Fix 'Can't find borders for feature ...' error when using text features on GPU. #2657
+* Fix indexing of tokenized text features in model saver and dataset loader when some features are ignored
+* Fix descent direction for Cox regression fix #2701
+* Fix GetTreeNodeToLeaf in multidimensional case (fixes plot_tree for multidimensional approx with non-oblivious trees). #2668
+
+
 # Release 1.2.5
 
 ## New features
@@ -148,7 +239,7 @@ This allowed us to prepare the Python package in the source distribution form (a
 * Static model applier library now works on Windows.
 * Add `binary-classification-threshold` parameter to the CLI model applier.
 * Support Multi-target regression with text features (but only Bag-of-Words features are generated for now). #2229
-* Support `RMSEWithUncertainty` loss function on GPU.
+* Support `RMSEWithUncertainty` loss function on GPU. #1573
 * Support `MultiLogloss` and `MultiCrossEntropy` loss functions with numerical features on GPU.
 * Support `MultiLogloss` loss function with text features on CPU and GPU. #1885
 * Enable univariate metrics for models with uncertainty
@@ -1504,7 +1595,7 @@ Now you can use our Jupyter visualization, CatBoost viewer or TensorBoard the sa
 - Added a flag to allow constant labels
 
 ## New metrics
-We added many new metrics that can be used for visualization, overfitting detection, selecting of best iteration of training or for cross-validation:
+We added many new metrics that can be used for visualization, overfitting detection, selecting of the best iteration of training or for cross-validation:
 - BierScore
 - HingeLoss
 - HammingLoss

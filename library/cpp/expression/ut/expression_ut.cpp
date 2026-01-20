@@ -22,6 +22,7 @@ Y_UNIT_TEST_SUITE(TCalcExpressionTest) {
         m["mv"] = 32768;
         m["big"] = 68719476736;
         m["small"] = 1;
+        m["neg"] = -1000.;
 
         UNIT_ASSERT_EQUAL(CalcExpression("1 == 1", m), 1);
         UNIT_ASSERT_EQUAL(CalcExpression("1 == 0", m), 0);
@@ -29,6 +30,15 @@ Y_UNIT_TEST_SUITE(TCalcExpressionTest) {
         UNIT_ASSERT_EQUAL(CalcExpression("(2 - 1) > 0", m), 1);
         UNIT_ASSERT_EQUAL(CalcExpression("(2 - 1) > 1", m), 0);
         UNIT_ASSERT_EQUAL(CalcExpression("2 - 2 - 2", m), -2);
+        UNIT_ASSERT_VALUES_EQUAL(CalcExpression("0*neg", m), 0);
+        UNIT_ASSERT_VALUES_EQUAL(CalcExpression("1 * -1000", m), -1000);
+        UNIT_ASSERT_VALUES_EQUAL(CalcExpression("1 * +1000", m), 1000);
+        UNIT_ASSERT_VALUES_EQUAL(CalcExpression("small * +1000", m), 1000);
+        UNIT_ASSERT_VALUES_EQUAL(CalcExpression("small * -1000", m), -1000);
+        UNIT_ASSERT_VALUES_EQUAL(CalcExpression("small * -small", m), -1);
+        UNIT_ASSERT_VALUES_EQUAL(CalcExpression("(small + small) * -small", m), -2);
+        UNIT_ASSERT_VALUES_EQUAL(CalcExpression("0*-1000", m), 0);
+        UNIT_ASSERT_VALUES_EQUAL(CalcExpression("1||0&&0", m), 0);
 
         UNIT_ASSERT_EQUAL(CalcExpression("-2 + 2", m), 0);
         UNIT_ASSERT_EQUAL(CalcExpression("mv&32768==32768", m), 1);
@@ -44,6 +54,7 @@ Y_UNIT_TEST_SUITE(TCalcExpressionTest) {
         UNIT_ASSERT_EQUAL(CalcExpression("(9*a) > 1 && size > 20", m), 0);
         UNIT_ASSERT_EQUAL(CalcExpression("2+2*2", m), 6);
         UNIT_ASSERT_EQUAL(CalcExpression("2+2^3", m), 10);
+        UNIT_ASSERT_EQUAL(CalcExpression("2 - 20*2", m), -38);
         UNIT_ASSERT_EQUAL(CalcExpression("1 #MIN# 2", m), 1);
         UNIT_ASSERT_EQUAL(CalcExpression("2 #MIN# 1", m), 1);
         UNIT_ASSERT_EQUAL(CalcExpression("1 #MAX# 2", m), 2);
@@ -63,6 +74,79 @@ Y_UNIT_TEST_SUITE(TCalcExpressionTest) {
         UNIT_ASSERT_EQUAL(CalcExpression("2+(2==2)", m), 3);
         UNIT_ASSERT_EQUAL(CalcExpression("2+(2==0)", m), 2);
         UNIT_ASSERT_EQUAL(CalcExpression("~big+~small+~azaza", m), 2);
+
+        THashMap<TString, THistogramPointsAndBins> histogramDataMap;
+        TVector<double> randomFilledPoints = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+        TVector<double> randomFilledBins = {10, 0, 5, 17, 13, 105, 6, 100, 9, 10, 0};
+        auto randomFilledHistogramData = THistogramPointsAndBins(randomFilledPoints, randomFilledBins);
+        TVector<double> equalPartsPoints = {1, 2, 3};
+        TVector<double> equalPartsBins = {100, 100, 100, 100};
+        auto equalPartsHistogramData = THistogramPointsAndBins(equalPartsPoints, equalPartsBins);
+        TVector<double> firstZeroPoints = {0, 2, 3};
+        TVector<double> firstZeroBins = {100, 100, 100, 100};
+        auto firstZeroHistogramData = THistogramPointsAndBins(firstZeroPoints, firstZeroBins);
+        TVector<double> emptyPartsPoints = {1, 2, 3};
+        TVector<double> emptyPartsBins = {0, 0, 0, 0};
+        auto emptyPartsHistogramData = THistogramPointsAndBins(emptyPartsPoints, emptyPartsBins);
+        TVector<double> maxIntPoints = {1, 2, std::numeric_limits<int>::max()};
+        TVector<double> maxIntBins = {100, 100, 100, 0};
+        auto maxIntHistogramData = THistogramPointsAndBins(maxIntPoints, maxIntBins);
+
+        histogramDataMap["random.feature"] = randomFilledHistogramData;
+        histogramDataMap["equal.parts.feature%"] = equalPartsHistogramData;
+        histogramDataMap["equal.parts.feature-with-dash%"] = equalPartsHistogramData;
+        histogramDataMap["equal.parts.feature/with/divide%"] = equalPartsHistogramData;
+        histogramDataMap["empty.parts.feature%"] = emptyPartsHistogramData;
+        histogramDataMap["first.zero.feature%"] = firstZeroHistogramData;
+        histogramDataMap["max.int.feature%"] = maxIntHistogramData;
+
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# random.feature, 95", histogramDataMap), 8 + (1.0 - (265 - 261.25) / 9));
+
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# max.int.feature%, 99", histogramDataMap), 2 * 1.1);
+
+        // (-inf, 0]
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# first.zero.feature%, 5", histogramDataMap), 0);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# first.zero.feature%, 20", histogramDataMap), 0);
+        // (0, 2]
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# first.zero.feature%, 30", histogramDataMap), 2 * (1.0 - (200 - 400 * 0.3) / 100));
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# first.zero.feature%, 50", histogramDataMap), 2);
+
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# equal.parts.feature%, 5", histogramDataMap), 0 + 1.0 - (100 - 400 * 0.05) / 100);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# equal.parts.feature%, 20", histogramDataMap), 0 + 1.0 - (100 - 400 * 0.2) / 100);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# equal.parts.feature%, 25", histogramDataMap), 1);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# equal.parts.feature%, 50", histogramDataMap), 2);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# equal.parts.feature%, 75", histogramDataMap), 3);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# equal.parts.feature%, 99", histogramDataMap), 3 * 1.1);
+
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# 'equal.parts.feature-with-dash%', 99", histogramDataMap), 3 * 1.1);
+
+        UNIT_ASSERT_EQUAL(CalcExpression("5 + #HISTOGRAM_PERCENTILE# equal.parts.feature%, 50 - 3", histogramDataMap), 4);
+        UNIT_ASSERT_EQUAL(CalcExpression("5 + #HISTOGRAM_PERCENTILE# equal.parts.feature%, 50 / 0.5", histogramDataMap), 9);
+        UNIT_ASSERT_EQUAL(CalcExpression("(5 + #HISTOGRAM_PERCENTILE# equal.parts.feature%, 50) / 7", histogramDataMap), 1);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# equal.parts.feature%, 50 + 5", histogramDataMap), 7);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# equal.parts.feature%, 50 + #HISTOGRAM_PERCENTILE# equal.parts.feature%, 75", histogramDataMap), 5);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# equal.parts.feature%, #HISTOGRAM_PERCENTILE# equal.parts.feature%, 99", histogramDataMap), 0 + 1.0 - (100 - 4 * 3 * 1.1) / 100);
+
+        // Invalid #HISTOGRAM_PERCENTILE#
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# #HISTOGRAM_PERCENTILE# equal.parts.feature%, 5, 5", histogramDataMap), 0);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# equal.parts.feature%, ", histogramDataMap), 0);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# equal.parts.feature%, 0", histogramDataMap), 0);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# equal.parts.feature%, 100", histogramDataMap), 0);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE#", histogramDataMap), 0);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# 1,", histogramDataMap), 0);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# 1,,", histogramDataMap), 0);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# ,5", histogramDataMap), 0);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# ,105", histogramDataMap), 0);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# ,random.feature", histogramDataMap), 0);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# equal.parts.feature%, 20, 20", histogramDataMap), 0);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# empty.parts.feature%, 75", histogramDataMap), 0);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# equal.parts.feature-with-dash%, 99", histogramDataMap), 0);
+        UNIT_ASSERT_EQUAL(CalcExpression("#HISTOGRAM_PERCENTILE# \"equal.parts.feature-with-dash%\", 99", histogramDataMap), 0);
+
+        UNIT_CHECK_GENERATED_EXCEPTION(CalcExpression("#HISTOGRAM_PERCENTILE# (equal.parts.feature%, 20)", histogramDataMap), yexception);
+        UNIT_CHECK_GENERATED_EXCEPTION(CalcExpression("#HISTOGRAM_PERCENTILE# equal.parts.feature/with/divide%, 99'", histogramDataMap), yexception);
+        UNIT_CHECK_GENERATED_EXCEPTION(CalcExpression("#HISTOGRAM_PERCENTILE# 'equal.parts.feature/with/divide%', 99'", histogramDataMap), yexception);
+        UNIT_CHECK_GENERATED_EXCEPTION(CalcExpression("#HISTOGRAM_PERCENTILE# \"equal.parts.feature/with/divide%\", 99\"", histogramDataMap), yexception);
     }
 
     Y_UNIT_TEST(TestStringExpression) {
@@ -317,6 +401,16 @@ Y_UNIT_TEST_SUITE(TCalcExpressionTest) {
         UNIT_ASSERT_EQUAL(calcExpression("A =~ \".*r\""), 1);
         UNIT_ASSERT_EQUAL(calcExpression("A =~ A"), 1);
         UNIT_ASSERT_EQUAL(calcExpression("cyr =~ \"к.р[и]л*ица\""), 1);
+    }
+
+    Y_UNIT_TEST(TestEmptyExpression) {
+        // На самом деле должно бросать исключение тут https://a.yandex-team.ru/arcadia/library/cpp/expression/expression.cpp?rev=r15660625#L547
+        // Но т.к. в Trim очень давно баг в удалении пробелов с начала, индекс перебегает индекс конца, то исключения не происходит
+        // Этому багу 12 лет, исправление бага приводит к падению других тестов, поэтому этот баг не исправил
+        // В этом тесте проверяю что исключения нет и вычисление пустого выражения дает 0
+        THashMap<TString, TString> m;
+        m["A"] = "123";
+        UNIT_ASSERT_EQUAL(CalcExpression("", m), 0);
     }
 
 } // TCalcExpressionTest

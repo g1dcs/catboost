@@ -1,6 +1,7 @@
 #pragma once
 
 #include "fwd.h"
+#include "iterator.h"
 #include "strbase.h"
 #include "utility.h"
 #include "typetraits.h"
@@ -23,8 +24,8 @@ public:
     using char_type = TCharType; // TODO: DROP
     using traits_type = TTraits;
 
-    //Resolving some ambiguity between TStringBase and std::basic_string_view
-    //for typenames
+    // Resolving some ambiguity between TStringBase and std::basic_string_view
+    // for typenames
     using typename TStringView::const_iterator;
     using typename TStringView::const_reference;
     using typename TStringView::const_reverse_iterator;
@@ -34,10 +35,10 @@ public:
     using typename TStringView::size_type;
     using typename TStringView::value_type;
 
-    //for constants
+    // for constants
     using TStringView::npos;
 
-    //for methods and operators
+    // for methods and operators
     using TStringView::begin;
     using TStringView::cbegin;
     using TStringView::cend;
@@ -98,6 +99,8 @@ public:
      *  to generate compilation error instead.
      */
     constexpr inline TBasicStringBuf(std::nullptr_t begin, size_t size) = delete;
+    // TODO: Uncomment.
+    // constexpr TBasicStringBuf(std::nullptr_t) = delete;
 
     constexpr inline TBasicStringBuf(const TCharType* data Y_LIFETIME_BOUND, size_t size) noexcept
         : TStringView(data, size)
@@ -114,7 +117,11 @@ public:
     }
 
     constexpr inline TBasicStringBuf(const TCharType* beg Y_LIFETIME_BOUND, const TCharType* end Y_LIFETIME_BOUND) noexcept
-        : TStringView(beg, end - beg)
+#if __cplusplus >= 202002L && __cpp_lib_string_view >= 201803L && !defined(_LIBCPP_HAS_NO_CONCEPTS)
+        : TStringView(beg, end)
+#else
+        : TStringView(beg, NonNegativeDistance(beg, end))
+#endif
     {
     }
 
@@ -125,7 +132,7 @@ public:
     }
 
     template <typename T>
-    inline TBasicStringBuf(const TBasicString<TCharType, T>& str Y_STRING_LIFETIME_BOUND) noexcept
+    inline TBasicStringBuf(const TBasicString<TCharType, T>& str Y_LIFETIME_BOUND) noexcept
         : TStringView(str.data(), str.size())
     {
     }
@@ -282,8 +289,9 @@ public:
     // s.TrySplitOn(s.find('z'), ...) is false, but s.TrySplitOn(100500, ...) is true.
 
     bool TrySplitOn(size_t pos, TdSelf& l, TdSelf& r, size_t len = 1) const noexcept {
-        if (TBase::npos == pos)
+        if (TBase::npos == pos) {
             return false;
+        }
 
         DoSplitOn(pos, l, r, len);
         return true;
@@ -463,7 +471,7 @@ public: // string subsequences
     /// Sets the start pointer to a position relative to the end
     inline TdSelf& RSeek(size_t tailSize) noexcept {
         if (size() > tailSize) {
-            //WARN: removing TStringView:: will lead to an infinite recursion
+            // WARN: removing TStringView:: will lead to an infinite recursion
             *this = TStringView::substr(size() - tailSize, tailSize);
         }
 
@@ -476,7 +484,7 @@ public: // string subsequences
         // exn_spec_violation: An exception of type "std::out_of_range" is thrown but the exception specification "noexcept" doesn't allow it to be thrown. This will result in a call to terminate().
         // fun_call_w_exception: Called function TStringView::substr throws an exception of type "std::out_of_range".
         // Suppress this issue because we pass argument pos=0 and string_view can't throw std::out_of_range.
-        *this = TStringView::substr(0, targetSize); //WARN: removing TStringView:: will lead to an infinite recursion
+        *this = TStringView::substr(0, targetSize); // WARN: removing TStringView:: will lead to an infinite recursion
         return *this;
     }
 

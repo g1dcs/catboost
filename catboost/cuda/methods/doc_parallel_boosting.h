@@ -50,7 +50,7 @@ namespace NCatboostCuda {
         const NCatboostOptions::TBoostingOptions& Config;
         const NCatboostOptions::TModelBasedEvalOptions& ModelBasedEvalConfig;
         const NCatboostOptions::TLossDescription& TargetOptions;
-        const TMaybe<TCustomObjectiveDescriptor>& ObjectiveDescriptor;
+        const TMaybe<TCustomObjectiveDescriptor> ObjectiveDescriptor;
 
         NPar::ILocalExecutor* LocalExecutor;
 
@@ -568,7 +568,7 @@ namespace NCatboostCuda {
 
             const ui32 baseModelSize = baseModels[0].Size();
             const ui32 offset = ModelBasedEvalConfig.Offset;
-            CB_ENSURE(baseModelSize >= offset, "Error: offset " << offset << " must be less or equal to best iteration of baseline model " << baseModelSize);
+            CB_ENSURE(baseModelSize >= offset, "Error: offset " << offset << " must be less or equal to the best iteration of baseline model " << baseModelSize);
             const ui32 experimentCount = ModelBasedEvalConfig.ExperimentCount;
             const auto getExperimentStart = [=] (ui32 experimentIdx) {
                 return baseModelSize - offset + offset / experimentCount * experimentIdx;

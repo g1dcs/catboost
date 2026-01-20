@@ -18,6 +18,9 @@ class TIntrusivePtr
 public:
     using TUnderlying = T;
 
+    //! For compatibility with std:: smart pointers.
+    using element_type = T;
+
     constexpr TIntrusivePtr() noexcept
     { }
 
@@ -32,7 +35,7 @@ public:
      * Note that it notoriously hard to make this constructor explicit
      * given the current amount of code written.
      */
-    TIntrusivePtr(T* obj, bool addReference = true) noexcept
+    constexpr TIntrusivePtr(T* obj, bool addReference = true) noexcept
         : T_(obj)
     {
         if (T_ && addReference) {
@@ -54,9 +57,7 @@ public:
     TIntrusivePtr(const TIntrusivePtr<U>& other) noexcept
         : T_(other.Get())
     {
-        static_assert(
-            std::derived_from<T, TRefCountedBase>,
-            "Cast allowed only for types derived from TRefCountedBase");
+        ValidateCastFrom<U>();
         if (T_) {
             Ref(T_);
         }
@@ -74,9 +75,7 @@ public:
     TIntrusivePtr(TIntrusivePtr<U>&& other) noexcept
         : T_(other.Get())
     {
-        static_assert(
-            std::derived_from<T, TRefCountedBase>,
-            "Cast allowed only for types derived from TRefCountedBase");
+        ValidateCastFrom<U>();
         other.T_ = nullptr;
     }
 
@@ -102,9 +101,7 @@ public:
         static_assert(
             std::is_convertible_v<U*, T*>,
             "U* must be convertible to T*");
-        static_assert(
-            std::derived_from<T, TRefCountedBase>,
-            "Cast allowed only for types derived from TRefCountedBase");
+        ValidateCastFrom<U>();
         TIntrusivePtr(other).Swap(*this);
         return *this;
     }
@@ -123,9 +120,7 @@ public:
         static_assert(
             std::is_convertible_v<U*, T*>,
             "U* must be convertible to T*");
-        static_assert(
-            std::derived_from<T, TRefCountedBase>,
-            "Cast allowed only for types derived from TRefCountedBase");
+        ValidateCastFrom<U>();
         TIntrusivePtr(std::move(other)).Swap(*this);
         return *this;
     }
@@ -144,6 +139,12 @@ public:
 
     //! Returns the pointer.
     T* Get() const noexcept
+    {
+        return T_;
+    }
+
+    //! Returns the pointer, for compatibility with std:: smart pointers.
+    T* get() const noexcept
     {
         return T_;
     }
@@ -184,6 +185,16 @@ private:
     friend class TIntrusivePtr;
 
     T* T_ = nullptr;
+
+    template <class U>
+    static constexpr void ValidateCastFrom() noexcept
+    {
+        if constexpr (!std::is_same_v<const U, T>) {
+            static_assert(
+                std::derived_from<T, TRefCountedBase>,
+                "Cast allowed only for types derived from TRefCountedBase");
+        }
+    }
 };
 
 ////////////////////////////////////////////////////////////////////////////////

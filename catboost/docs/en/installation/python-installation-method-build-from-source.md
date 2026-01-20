@@ -1,5 +1,7 @@
 # Build Python package from source
 
+{% include [supported-versions](../_includes/work_src/reusage-installation/python__supported-versions.md) %}
+
 {% if audience == "internal" %}
 
 {% include [internal-note__use-outside-arcadia](../yandex_specific/_includes/note__use-outside-arcadia.md) %}
@@ -28,6 +30,10 @@ For building with earlier versions see these pages:
 
 1. As {{ product }} Python package has a native extension library as its' core [build environment setup for CMake](build-environment-setup-for-cmake.md) is required.
 
+1. `build` Python package.
+
+1. `setuptools` Python package, version 64.0+. Installed by default for Python < 3.12, an explicit installation is needed for Python 3.12+.
+
 1. Other setup dependencies that can be formulated as python packages are listed in [`pyproject.toml`](https://github.com/catboost/catboost/blob/master/catboost/python-package/pyproject.toml)'s `build-system.requires` and in [`setup.py`](https://github.com/catboost/catboost/blob/master/catboost/python-package/setup.py) in standard `setup_requires` parameter and processed using standard Python tools.
 
     {% note info %}
@@ -36,7 +42,7 @@ For building with earlier versions see these pages:
         - setuptools
         -  wheel
         - jupyterlab (3.x, 4.x is not supported yet, see [the relevant issue](https://github.com/catboost/catboost/issues/2533))
-        - conan (1.62.0+, but 1.x series, 2.x is not supported yet, see [the relevant issue](https://github.com/catboost/catboost/issues/2582))
+        - conan (2.4.1+, for revisions before [21a3f85](https://github.com/catboost/catboost/commit/21a3f856c118b8c2514f0307ca7b013d6329015e) only conan 1.x with versions 1.62.0+ is supported)
 
     {% endnote %}
 
@@ -50,6 +56,10 @@ For building with earlier versions see these pages:
 
 1. Installation dependencies are listed in [`setup.py`](https://github.com/catboost/catboost/blob/master/catboost/python-package/setup.py) in standard `install_requires` parameter and processed using standard Python tools.
 
+1. User-defined functions
+
+    {% include [python__user-defined-functions-dependencies](../_includes/work_src/reusage-installation/python__user-defined-functions-dependencies.md) %}
+
 {% include [installation-nvidia-driver-reqs](../_includes/work_src/reusage-code-examples/nvidia-driver-reqs.md) %}
 
 ## Building
@@ -62,13 +72,31 @@ Use Python's standard procedures:
 
 {% note warning %}
 
-Note that built Python wheels will be binary compatible only with the same Python X.Y versions.
+Note that built Python wheels will be compatible only with:
+- the same platform that you build them on (i.e. `linux-x86_64`, `macos-arm64` etc.). Cross-compilation on Linux and building universal2 - compatible packages on macOS are possible but complicated, you can look at [ci/build_all.py script](https://github.com/catboost/catboost/blob/master/ci/build_all.py) for details.
+- the same Python X.Y versions as the Python interpreter that you run the build command with.
 
 {% endnote %}
 
 ```
+python -m build --wheel --config-setting=--global-option=bdist_wheel <bdist_wheel options>
+```
+
+`bdist_wheel` options should be specified in the following way: `--config-setting=--global-option=--<flag_option>` or `--config-setting=--global-option=--<option_key>=<option_value>`
+
+Example:
+
+```
+python -m build --wheel --config-setting=--global-option=bdist_wheel --config-setting=--global-option=--with-hnsw --config-setting=--global-option=--prebuilt-extensions-build-root-dir=/home/user/catboost/build/
+```
+
+You can also use older non-[PEP517](https://peps.python.org/pep-0517/) compliant way to build wheels:
+
+```
 python setup.py bdist_wheel <options>
 ```
+
+But it is deprecated and this command does not work properly for CatBoost on recent macOS versions (14+).
 
 Options can be listed by calling `python setup.py bdist_wheel --help`.
 
@@ -136,3 +164,10 @@ Builds in the process. So [build environment setup for CMake](build-environment-
 ```
 python -m pip install <path-to-sdist-tar.gz>
 ```
+
+{% note info %}
+
+If `CUDA_PATH` or `CUDA_ROOT` environment variable is defined and contains a path to a valid `CUDA` installation, then CatBoost python package will be built with this `CUDA` version.
+Otherwise `CUDA` support will be disabled in the package.
+
+{% endnote %}

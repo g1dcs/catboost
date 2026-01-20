@@ -25,6 +25,7 @@ execute_catboost_fit = lib.execute_catboost_fit
 format_crossvalidation = lib.format_crossvalidation
 get_limited_precision_dsv_diff_tool = lib.get_limited_precision_dsv_diff_tool
 local_canonical_file = lib.local_canonical_file
+generate_concatenated_random_labeled_dataset = lib.generate_concatenated_random_labeled_dataset
 
 
 CATBOOST_PATH = yatest.common.binary_path("catboost/app/catboost")
@@ -55,14 +56,6 @@ CLASSIFICATION_TEXT_FEATURE_ESTIMATORS = [
 REGRESSION_TEXT_FEATURE_ESTIMATORS = [
     'BoW'
 ]
-
-
-def generate_concatenated_random_labeled_dataset(nrows, nvals, labels, seed=20181219, prng=None):
-    if prng is None:
-        prng = np.random.RandomState(seed=seed)
-    label = prng.choice(labels, [nrows, 1])
-    feature = prng.random_sample([nrows, nvals])
-    return np.concatenate([label, feature], axis=1)
 
 
 def diff_tool(threshold=2e-7):
@@ -1464,11 +1457,11 @@ def test_pairlogit_no_target(compressed_data, boosting_type):
     output_test_error_path = yatest.common.test_output_path('test_error.tsv')
     params = [
         '--loss-function', 'PairLogit',
-        '-f', os.path.join(compressed_data.name, 'mslr_web1k', 'train'),
-        '-t', os.path.join(compressed_data.name, 'mslr_web1k', 'test'),
-        '--column-description', os.path.join(compressed_data.name, 'mslr_web1k', 'cd.no_target'),
-        '--learn-pairs', os.path.join(compressed_data.name, 'mslr_web1k', 'train.pairs'),
-        '--test-pairs', os.path.join(compressed_data.name, 'mslr_web1k', 'test.pairs'),
+        '-f', os.path.join(compressed_data, 'mslr_web1k', 'train'),
+        '-t', os.path.join(compressed_data, 'mslr_web1k', 'test'),
+        '--column-description', os.path.join(compressed_data, 'mslr_web1k', 'cd.no_target'),
+        '--learn-pairs', os.path.join(compressed_data, 'mslr_web1k', 'train.pairs'),
+        '--test-pairs', os.path.join(compressed_data, 'mslr_web1k', 'test.pairs'),
         '--boosting-type', boosting_type,
         '-i', '250',
         '-T', '4',
@@ -2608,9 +2601,9 @@ def test_groupwise_with_cat_features(compressed_data, loss_function, eval_metric
     output_test_error_path = yatest.common.test_output_path('test_error.tsv')
     output_eval_error_path = yatest.common.test_output_path('eval_file.tsv')
 
-    train_file = os.path.join(compressed_data.name, 'mslr_web1k', 'train')
-    test_file = os.path.join(compressed_data.name, 'mslr_web1k', 'test')
-    cd_file = os.path.join(compressed_data.name, 'mslr_web1k', 'cd.with_cat_features')
+    train_file = os.path.join(compressed_data, 'mslr_web1k', 'train')
+    test_file = os.path.join(compressed_data, 'mslr_web1k', 'test')
+    cd_file = os.path.join(compressed_data, 'mslr_web1k', 'cd.with_cat_features')
 
     params = [
         '--loss-function', loss_function,
@@ -2770,27 +2763,27 @@ def test_grow_policies(boosting_type, grow_policy, score_function, loss_func):
     else:
         assert False
 
-    params = {
-        '--loss-function': loss_func,
-        '--grow-policy': grow_policy,
-        '--score-function': score_function,
-        '-m': model_path,
-        '-f': learn,
-        '-t': test,
-        '--column-description': cd,
-        '-i': '20',
-        '-T': '4',
-        '--learn-err-log': learn_error_path,
-        '--test-err-log': test_error_path,
-        '--eval-file': output_eval_path,
-        '--use-best-model': 'false',
-        '--metric-period': '1',
-    }
+    params = (
+        '--loss-function', loss_func,
+        '--grow-policy', grow_policy,
+        '--score-function', score_function,
+        '-m', model_path,
+        '-f', learn,
+        '-t', test,
+        '--column-description', cd,
+        '-i', '20',
+        '-T', '4',
+        '--learn-err-log', learn_error_path,
+        '--test-err-log', test_error_path,
+        '--eval-file', output_eval_path,
+        '--use-best-model', 'false',
+        '--metric-period', '1',
+    ) + NO_RANDOM_PARAMS
 
     if boosting_type != 'Default':
-        params['--boosting-type'] = boosting_type
+        params += ('--boosting-type', boosting_type)
     if grow_policy == 'Lossguide':
-        params['--depth'] = 100
+        params += ('--depth', '100')
 
     # try:
     if is_valid_gpu_params(boosting_type, grow_policy, score_function, loss_func):
@@ -2807,6 +2800,7 @@ def test_grow_policies(boosting_type, grow_policy, score_function, loss_func):
     calc_cmd = (
         CATBOOST_PATH,
         'calc',
+        '-T', '4',
         '--input-path', test,
         '--column-description', cd,
         '-m', model_path,
@@ -2862,18 +2856,19 @@ def test_model_based_eval(dataset):
         return (
             '--data-partition', 'DocParallel',
             '--permutations', '1',
-            '--loss-function', 'RMSE',
+            '--loss-function', 'RMSE' if dataset['base'] != 'querywise' else 'YetiRank',
             '-f', get_table_path('train'),
             '-t', get_table_path('test'),
             '--cd', get_table_path('cd'),
             '-i', '100',
             '-T', '4',
-            '-w', '0.01',
+            '-w', '0.001',
             '--test-err-log', test_err_log,
             '--data-partition', 'DocParallel',
             '--random-strength', '0',
             '--bootstrap-type', 'No',
             '--has-time',
+            '--metric-period', '1',
         )
 
     ignored_features = '10:11:12:13:15' if dataset['cd'] != 'train_with_id.cd' else 'C7:C8:C9:F3:F5'
