@@ -5,7 +5,7 @@ from typing import Dict
 import pytest
 
 import numpy as np
-from pandas import DataFrame
+import pandas as pd
 
 import sklearn
 import sklearn.base
@@ -31,9 +31,8 @@ try:
 
     import catboost_python_package_ut_lib as python_package_ut_lib
 except ImportError:
-    sys.path.append(os.path.join(os.environ['CMAKE_SOURCE_DIR'], 'catboost', 'pytest'))
     import lib
-    sys.path.insert(0, os.path.join(os.environ['CMAKE_SOURCE_DIR'], 'catboost', 'python-package'))
+    sys.path.insert(0, os.path.join(lib.git_repo_root_dir, 'catboost', 'python-package'))
     import ut.lib as python_package_ut_lib
 
 
@@ -60,7 +59,7 @@ CD_FILE = data_file('adult', 'train.cd')
 def test_sklearn_calibrated_classifier_cv_with_frozen_catboost():
     from sklearn.frozen import FrozenEstimator
 
-    X_train = DataFrame(
+    X_train = pd.DataFrame(
         data=np.random.randint(0, 100, size=(100, 5)),
         columns=['feature{}'.format(i) for i in range(5)]
     )
